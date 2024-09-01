@@ -38,11 +38,16 @@ class LpLoss(object):
 
     def __call__(self, x, y):
         return self.rel(x, y)
-    
+
+def make_array(n_cols, n_rows, vals):
+    return darcy_pb2.Array(n_cols=n_cols,
+                           n_rows=n_rows,
+                           val=[1.2,0.,0.]
+                           )
 def main():
 
-    mode1 = 10
-    mode2 = 10
+    mode1 = 2
+    mode2 = 2
     width = 36
 
     model = Net2d(mode1, mode2, width)
@@ -54,7 +59,7 @@ def main():
     scheduler_gamma = 0.9
     learning_rate = 10e-3
     time_steps = 1
-    dim_x, dim_y = (64, 64)
+    dim_x, dim_y = (4, 4)
     init_pressure = torch.tensor(np.zeros((1,dim_x, dim_y, 1)), dtype=torch.float32) #Should be (batch_size, x, y, t, c)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
@@ -64,12 +69,13 @@ def main():
     curr_state = init_pressure
     with grpc.insecure_channel("localhost:50051") as channel:
         stub = darcy_pb2_grpc.pimlStub(channel)
-    for ep in range(epochs):
-        ##Calculate next time step and send to grpc client to get residual
-        curr_state = init_pressure.to(device)
-        print(curr_state.dtype)
-        for t in range(time_steps):
+        for ep in range(epochs):
+            ##Calculate next time step and send to grpc client to get residual
+            curr_state = init_pressure.to(device)
             next_state = model(curr_state)
+            # print(next_state)
+            f = stub.get_residual(make_array(dim_x, dim_y, next_state))
+            print(f)
         
 
     return 0
